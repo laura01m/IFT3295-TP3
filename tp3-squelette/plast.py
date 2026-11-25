@@ -6,6 +6,8 @@ Vous pouvez ajouter vos propres fonctions. Aucune librairie qui fait le
 travail a votre place (Biopython, etc.).
 """
 
+import math
+
 from utils import HSP
 
 MATCH: int = 5
@@ -33,22 +35,63 @@ def hsps_initiaux(requete: str, cible: str, graine: str) -> list[HSP]:
     """
     raise NotImplementedError
 
-
 def etendre(requete: str, cible: str, hsp: HSP, seuil_e: int) -> HSP:
     """Etend un HSP (section 1.4).
 
     Exemple : etendre('AC', 'AC', HSP(0, 0, 1, 5), 4) donne HSP(0, 0, 2, 10).
     """
-    raise NotImplementedError
+    HSP_etendu = HSP(hsp.debut_requete, hsp.debut_cible, hsp.longueur, hsp.score)
+    score_max = HSP_etendu.score
+    seuil_act = HSP_etendu.score # Pour vérifier si, au fil des itérations, le score descend en dessous de seuil_e
+    gauche = False # Flag pour savoir d'où vient la valeur de seuil_act
+    while True:
+        
+        score_gauche = -5
+        score_droite = -5
+        #Extension gauche
+        if HSP_etendu.debut_requete > 0 and HSP_etendu.debut_cible > 0:
+            score_gauche = score(requete, cible, HSP_etendu.debut_requete - 1, HSP_etendu.debut_cible -1, 1)
+        
+        #Extension droite
+        if HSP_etendu.debut_requete + HSP_etendu.longueur < len(requete) and HSP_etendu.debut_cible + HSP_etendu.longueur < len(cible):
+            score_droite = score(requete, cible, HSP_etendu.debut_requete + 1, HSP_etendu.debut_cible + 1,  1)
 
+        if score_gauche == -5 and score_droite == -5:
+            break
+        else:
+            # Calcul du score
+            if score_gauche >= score_droite:
+                seuil_act += score_gauche
+                gauche = True
+            elif score_droite > score_gauche:
+                seuil_act += score_droite
+                gauche = False
+            else:
+                break
+
+            if seuil_act > score_max:
+                score_max = seuil_act
+            
+            #Actualisation du HSP étendu
+            if score_max - seuil_act < seuil_e:
+                if gauche:
+                    HSP_etendu = HSP(HSP_etendu.debut_requete - 1, HSP_etendu.debut_cible - 1, HSP_etendu.longueur + 1, HSP_etendu.score + seuil_act)
+                else:
+                    HSP_etendu = HSP(HSP_etendu.debut_requete + 1, HSP_etendu.debut_cible + 1, HSP_etendu.longueur + 1, HSP_etendu.score + seuil_act)
+            else:
+                break
+
+    return HSP_etendu
 
 def chevauchent(a: HSP, b: HSP) -> bool:
     """Vrai si les HSPs alignent au moins une meme paire de positions (1.5).
 
     Exemple : chevauchent(HSP(0, 0, 2, 10), HSP(1, 1, 2, 10)) donne True.
     """
-    raise NotImplementedError
+    intervalle_a = [(a.debut_requete + i, a.debut_cible + i) for i in range(a.longueur)]
+    intervalle_b = [(b.debut_requete + i, b.debut_cible + i) for i in range(b.longueur)]
 
+    return bool(set(intervalle_a) & set(intervalle_b))
 
 def fusionner(requete: str, cible: str, hsps: list[HSP]) -> list[HSP]:
     """Fusionne les HSPs chevauchants (section 1.5).
@@ -56,16 +99,58 @@ def fusionner(requete: str, cible: str, hsps: list[HSP]) -> list[HSP]:
     Exemple : fusionner('AAA', 'AAA', [HSP(0, 0, 2, 10), HSP(1, 1, 2, 10)])
     donne [HSP(0, 0, 3, 15)].
     """
-    raise NotImplementedError
+    #hsps_etendus = [etendre(requete, cible, hsps[i],4) for i in range(len(hsps))]
 
+    chevauchements = {i : [] for i in range(len(hsps))} # Paires d'indices d'HSPs étendus chevauchants 
+    for i in range(len(hsps)):
+        for j in range(i + 1, len(hsps)):
+            if chevauchent(hsps[i], hsps[j]):
+                chevauchements[i].append(j)
+                chevauchements[j].append(i)
+    hsps_fusion = [] # Liste d'HSPs fusionnés
+    visites = []
+    for i in range(len(hsps)):
+        if i not in visites:
+            voisins = []
+            a_fusionner = [i]
+            while a_fusionner:
+                courant = a_fusionner.pop()
+                if courant not in visites:
+                    visites.append(courant)
+                    voisins.append(courant)
+                    a_fusionner.extend(chevauchements[courant])
 
+            if len(voisins) == 1:
+                hsps_fusion.append(hsps[i])
+            else:
+                debut_requete_fusion = min(hsps[j].debut_requete for j in voisins)
+                debut_cible_fusion = min(hsps[j].debut_cible for j in voisins)
+                longueur_fusion = max(hsps[j].debut_requete + hsps[j].longueur for j in voisins) - debut_requete_fusion
+                score_fusion = score(requete, cible, debut_requete_fusion, debut_cible_fusion, longueur_fusion)
+                hsps_fusion.append(HSP(debut_requete_fusion, debut_cible_fusion, longueur_fusion, score_fusion))
+
+    return hsps_fusion
+    
 def meilleur_hsp(requete: str, cible: str, graine: str, seuil_e: int) -> HSP | None:
     """Retourne le meilleur HSP pour une cible, ou None s'il n'y en a pas.
 
     Exemple : meilleur_hsp('AC', 'AC', '11', 4) donne HSP(0, 0, 2, 10).
     """
-    raise NotImplementedError
+    if len(graine) > len(requete) or len(graine) > len(cible):
+        return None
 
+    hsp_init = hsps_initiaux(requete, cible, graine)
+    if hsp_init == []:
+        return None
+
+    hsp_etendus = [etendre(requete, cible, hsp, seuil_e) for hsp in hsp_init]
+    hsp_fusionnes = fusionner(requete, cible, hsp_etendus)
+
+    bitscore = [round((LAMBDA * hsp.score - math.log(K)) / math.log(2)) for hsp in hsp_fusionnes]
+    
+    index_max_B = bitscore.index(max(bitscore))
+
+    return hsp_fusionnes[index_max_B]
 
 def statistiques(score_brut: int, m: int, n: int) -> tuple[int, float]:
     """Retourne (bitscore, e-value) du HSP (section 1.6).
@@ -88,4 +173,16 @@ def rechercher(
     Exemple : rechercher('AC', [('cible', 'AC')], '11', 4, 100) donne
     [(0, HSP(0, 0, 2, 10), 5, 0.125)].
     """
-    raise NotImplementedError
+    n = len(requete)
+    m = sum(len(cibles) for _,cibles in banque)
+
+    seq_pertinentes = []
+    for i in range(len(banque)):
+        cible = banque[i][1]
+        hsp = meilleur_hsp(requete, cible, graine, seuil_e)
+        if hsp is not None:
+            bitscore, e_value = statistiques(hsp.score, m, n)
+            if e_value <= seuil_ss:
+                seq_pertinentes.append((i, hsp, bitscore, e_value))
+
+    return seq_pertinentes
