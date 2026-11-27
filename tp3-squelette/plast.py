@@ -18,7 +18,7 @@ K: float = 0.176
 def mot_graine(sequence: str, debut: int, graine: str) -> str:
     mot = ""
     for j in range(len(graine)):
-        if graine[j] == "1":
+        if graine[j] == "1":        #lettre identique
             mot += sequence[debut + j]
     return mot
 
@@ -28,10 +28,10 @@ def kmers(sequence: str, graine: str) -> dict[str, list[int]]:
     Exemple : kmers('ACACA', '11') donne {'AC': [0, 2], 'CA': [1, 3]}.
     """
     k = len(graine)
-    positions = {}
+    positions = {}      #dictionnaire des listes de positions ou le mot apparait
     for debut in range(len(sequence) - k + 1):
         mot = mot_graine(sequence, debut, graine)
-        if mot not in positions:
+        if mot not in positions:    # crée liste vide à chaque fois qu'on voit un nouveau mot
             positions[mot] = []
         positions[mot].append(debut)
     return positions
@@ -39,8 +39,8 @@ def kmers(sequence: str, graine: str) -> dict[str, list[int]]:
 
 def score(requete: str, cible: str, debut_requete: int, debut_cible: int, longueur: int) -> int:
     """Calcule le score d'un HSP. Exemple : score('AC', 'AT', 0, 0, 2) donne 1."""
-    total = 0
-    for i in range(longueur):
+    total = 0       
+    for i in range(longueur):       #comparaison des 2 séquences par lettre
         if requete[debut_requete + i] == cible[debut_cible + i]:
             total += MATCH
         else:
