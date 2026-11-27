@@ -33,7 +33,7 @@ def kmers(sequence: str, graine: str) -> dict[str, list[int]]:
         mot = mot_graine(sequence, debut, graine)
         if mot not in positions:
             positions[mot] = []
-            positions[mot].append(debut)
+        positions[mot].append(debut)
     return positions
 
 
