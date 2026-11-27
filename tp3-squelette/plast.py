@@ -77,10 +77,9 @@ def etendre(requete: str, cible: str, hsp: HSP, seuil_e: int) -> HSP:
     """
     HSP_etendu = HSP(hsp.debut_requete, hsp.debut_cible, hsp.longueur, hsp.score)
     score_max = HSP_etendu.score
-    seuil_act = HSP_etendu.score # Pour vérifier si, au fil des itérations, le score descend en dessous de seuil_e
-    gauche = False # Flag pour savoir d'où vient la valeur de seuil_act
+
     while True:
-        
+        score_act = 0 # Pour vérifier si, au fil des itérations, le score descend en dessous de seuil_e
         score_gauche = -5
         score_droite = -5
         #Extension gauche
@@ -89,32 +88,28 @@ def etendre(requete: str, cible: str, hsp: HSP, seuil_e: int) -> HSP:
         
         #Extension droite
         if HSP_etendu.debut_requete + HSP_etendu.longueur < len(requete) and HSP_etendu.debut_cible + HSP_etendu.longueur < len(cible):
-            score_droite = score(requete, cible, HSP_etendu.debut_requete + 1, HSP_etendu.debut_cible + 1,  1)
+            score_droite = score(requete, cible, HSP_etendu.debut_requete + HSP_etendu.longueur, HSP_etendu.debut_cible + HSP_etendu.longueur, 1)
 
         if score_gauche == -5 and score_droite == -5:
             break
-        else:
-            # Calcul du score
-            if score_gauche >= score_droite:
-                seuil_act += score_gauche
-                gauche = True
-            elif score_droite > score_gauche:
-                seuil_act += score_droite
-                gauche = False
-            else:
-                break
 
-            if seuil_act > score_max:
-                score_max = seuil_act
-            
-            #Actualisation du HSP étendu
-            if score_max - seuil_act < seuil_e:
-                if gauche:
-                    HSP_etendu = HSP(HSP_etendu.debut_requete - 1, HSP_etendu.debut_cible - 1, HSP_etendu.longueur + 1, HSP_etendu.score + seuil_act)
-                else:
-                    HSP_etendu = HSP(HSP_etendu.debut_requete + 1, HSP_etendu.debut_cible + 1, HSP_etendu.longueur + 1, HSP_etendu.score + seuil_act)
-            else:
-                break
+        if score_gauche >= score_droite:
+            act = HSP(HSP_etendu.debut_requete - 1, 
+                      HSP_etendu.debut_cible - 1, 
+                      HSP_etendu.longueur + 1, 
+                      HSP_etendu.score + score_gauche)
+        else:
+            act = HSP(HSP_etendu.debut_requete, 
+                      HSP_etendu.debut_cible, 
+                      HSP_etendu.longueur + 1, 
+                      HSP_etendu.score + score_droite)
+
+        score_max = max(score_max, act.score)
+
+        if score_max - act.score >= seuil_e:
+            break
+
+        HSP_etendu = act
 
     return HSP_etendu
 
